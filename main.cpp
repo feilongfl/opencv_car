@@ -7,60 +7,62 @@
 
 using namespace cv;
 
+//打印版本号
 void VersionPrint ()
 {
     std::cout << "boost version:" << BOOST_VERSION << std::endl;
     std::cout << "opencv version:" << CV_VERSION << std::endl;
 }
 
+//画赛道
 void DrawGround(Mat src,Mat ret)
 {
-    Mat tempMat;
+    Mat grayMat;
+    //灰度
+    cv::cvtColor(src,grayMat,CV_BGR2GRAY);
 
-    cv::GaussianBlur(src,tempMat,Size(17,17),0,0);
-    namedWindow("GaussianBlur", 0);
-    imshow("GaussianBlur", tempMat);
+    //高斯模糊
+    cv::GaussianBlur(grayMat,grayMat,Size(17,17),0,0);
 
-    cv::adaptiveThreshold(tempMat,tempMat,255,0,0,35,5);
-    cv::dilate(tempMat,tempMat,cv::getStructuringElement(MORPH_RECT,Size(10,10)));
-    cv::erode(tempMat,tempMat,cv::getStructuringElement(MORPH_RECT,Size(5,5)));
-    imshow("threshold", tempMat);
+    //动态二值
+    Mat binMat;
+    cv::adaptiveThreshold(grayMat,binMat,255,0,0,35,5);
+    cv::dilate(binMat,binMat,cv::getStructuringElement(MORPH_RECT,Size(10,10)));
+    cv::erode(binMat,binMat,cv::getStructuringElement(MORPH_RECT,Size(5,5)));
 
+    //计算连通区域
     std::vector<std::vector<cv::Point> > c;
-    cv::findContours(t,c,CV_RETR_EXTERNAL,CV_CHAIN_APPROX_NONE);
+    cv::findContours(binMat,c,CV_RETR_EXTERNAL,CV_CHAIN_APPROX_NONE);
+
+    //搜索最大连通区
     double maxArea = 0;
     size_t MaxI = 0;
-    std::vector <cv::Point> maxContor;
     for(size_t i = 0;i < c.size();i++)
     {
         double area = cv::contourArea(c[i]);
         if(area > maxArea)
         {
             maxArea = area;
-            maxContor = c[i];
             MaxI = i;
         }
     }
 
+    //标记
     RNG rng(12345);
-    Mat drawing = imread("pic/view_mini1.jpg",1);
+    ret = src;
     Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
-    drawContours( drawing, c, MaxI, color, 2, 8, CV_RETR_EXTERNAL, 0, Point() );
-    imshow("maxc",drawing);
+    drawContours( ret, c, MaxI, color, 2, 8, CV_RETR_EXTERNAL, 0, Point() );
+    imshow("赛道",ret);
 }
 
 int main ()
 {
-    Mat m = imread("pic/m.jpg", 0);//模板
-    namedWindow("模板", 0);
-    imshow("模板", m);
+    Mat p = imread("pic/view_mini1.jpg",1);//匹配
+    //namedWindow("原始", 0);
+    imshow("原始", p);
 
-//    Mat p = imread("pic/car1.jpg",0);//匹配
-    Mat p = imread("pic/view_mini1.jpg",0);//匹配
-    namedWindow("匹配", 0);
-    imshow("匹配", p);
-
-
+    Mat r;
+    DrawGround(p,r);
 
     std::cout << "end" << std::endl;    
     waitKey(0);
