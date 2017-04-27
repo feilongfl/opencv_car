@@ -143,6 +143,8 @@ int main ()
      }  
     cv::namedWindow("result");  
     cv::imshow("result",maskimage);  
+
+    cv::boundingRect()
     waitKey();  
 
 }
