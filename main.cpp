@@ -4,120 +4,145 @@
 #include <boost/asio.hpp>
 #include <boost/timer/timer.hpp>
 #include <vector>
-
 using namespace cv;
 
-//打印版本号
-void VersionPrint ()
-{
-    std::cout << "boost version:" << BOOST_VERSION << std::endl;
-    std::cout << "opencv version:" << CV_VERSION << std::endl;
-}
+#if !defined WATERSHS
+#define WATERSHS
 
-//画赛道
-void DrawGround(Mat src,Mat ret)
-{
-    Mat grayMat;
-    //灰度
-    cv::cvtColor(src,grayMat,CV_BGR2GRAY);
+class WatershedSegmenter {
 
-    //高斯模糊
-    cv::GaussianBlur(grayMat,grayMat,Size(17,17),0,0);
+  private:
 
-    //动态二值
-    Mat binMat;
-    cv::adaptiveThreshold(grayMat,binMat,255,0,0,35,5);
-    cv::dilate(binMat,binMat,cv::getStructuringElement(MORPH_RECT,Size(10,10)));
-    cv::erode(binMat,binMat,cv::getStructuringElement(MORPH_RECT,Size(5,5)));
+	  cv::Mat markers;
 
-    //计算连通区域
-    std::vector<std::vector<cv::Point> > c;
-    cv::findContours(binMat,c,CV_RETR_LIST,CV_CHAIN_APPROX_SIMPLE);
-    std::vector<std::vector<cv::Point> > ca;
-    cv::approxPolyDP(c,ca,1,true);
+  public:
 
-    //搜索最大连通区
-    double maxArea = 0;
-    size_t MaxI = 0;
-    for(size_t i = 0;i < c.size();i++)
-    {
-        double area = cv::contourArea(c[i]);
-        if(area > maxArea)
-        {
-            maxArea = area;
-            MaxI = i;
-        }
-    }
+	  void setMarkers(const cv::Mat& markerImage) {
 
-    //标记
-    RNG rng(12345);
-    ret = src;
-    Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
-    drawContours( ret, c, MaxI, color, 2, 8, CV_RETR_EXTERNAL, 0, Point() );
-    drawContours( ret, ca, MaxI, color, 2, 8, CV_RETR_EXTERNAL, 0, Point() );
-    
-    
+		// Convert to image of ints
+		markerImage.convertTo(markers,CV_32S);
+	  }
 
-    imshow("赛道",ret);
-}
+	  cv::Mat process(const cv::Mat &image) {
 
+		// Apply watershed
+		cv::watershed(image,markers);
 
-//画赛道,canny法
-void DrawGround2(Mat src,Mat ret)
-{
-    Mat grayMat;
-    //灰度
-    cv::cvtColor(src,grayMat,CV_BGR2GRAY);
+		return markers;
+	  }
 
-    //动态二值
-    Mat binMat;
-    cv::Canny(grayMat,binMat,15,40);
-    cv::dilate(binMat,binMat,cv::getStructuringElement(MORPH_RECT,Size(10,10)));
-    //cv::erode(binMat,binMat,cv::getStructuringElement(MORPH_RECT,Size(5,5)));
+	  // Return result in the form of an image
+	  cv::Mat getSegmentation() {
+		  
+		cv::Mat tmp;
+		// all segment with label higher than 255
+		// will be assigned value 255
+		markers.convertTo(tmp,CV_8U);
 
-    imshow("canny",binMat);
+		return tmp;
+	  }
 
-    cv::waitKey(0);
-    cv::adaptiveThreshold(grayMat,binMat,255,0,0,35,5);
-    cv::dilate(binMat,binMat,cv::getStructuringElement(MORPH_RECT,Size(10,10)));
-    cv::erode(binMat,binMat,cv::getStructuringElement(MORPH_RECT,Size(20,20)));
+	  // Return watershed in the form of an image以图像的形式返回分水岭
+	  cv::Mat getWatersheds() {
+	
+		cv::Mat tmp;
+		//在变换前，把每个像素p转换为255p+255（在conertTo中实现）
+		markers.convertTo(tmp,CV_8U,255,255);
 
-    //计算连通区域
-    std::vector<std::vector<cv::Point> > c;
-    cv::findContours(binMat,c,CV_RETR_EXTERNAL,CV_CHAIN_APPROX_NONE);
+		return tmp;
+	  }
+};
+#endif
 
-    //搜索最大连通区
-    double maxArea = 0;
-    size_t MaxI = 0;
-    for(size_t i = 0;i < c.size();i++)
-    {
-        double area = cv::contourArea(c[i]);
-        if(area > maxArea)
-        {
-            maxArea = area;
-            MaxI = i;
-        }
-    }
-
-    //标记
-    RNG rng(12345);
-    ret = src;
-    Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
-    drawContours( ret, c, MaxI, color, 2, 8, CV_RETR_EXTERNAL, 0, Point() );
-    imshow("赛道2",ret);
-}
 
 int main ()
 {
-    Mat p = imread("pic/view_mini1.jpg",1);//匹配
-    //namedWindow("原始", 0);
-    imshow("原始", p);
+    // Read input image  
+    cv::Mat image1= cv::imread("pic/view_mini1.jpg");  
+    if (!image1.data)  
+        return 0;   
+// Display the color image  
+    cv::resize(image1, image1, cv::Size(), 0.7, 0.7);  
+    cv::namedWindow("Original Image1");  
+    cv::imshow("Original Image1",image1);  
 
-    Mat r;
-    DrawGround(p,r);
-    //DrawGround2(p,r);
+    // Identify image pixels with object  
+      
+    Mat binary;  
+    cv::cvtColor(image1,binary,COLOR_BGRA2GRAY);  
+    cv::threshold(binary,binary,30,255,THRESH_BINARY_INV);//阈值分割原图的灰度图，获得二值图像  
+    // Display the binary image  
+    cv::namedWindow("binary Image1");  
+    cv::imshow("binary Image1",binary);  
+    waitKey();  
+      
+    // CLOSE operation  
+    cv::Mat element5(5,5,CV_8U,cv::Scalar(1));//5*5正方形，8位uchar型，全1结构元素  
+    cv::Mat fg1;  
+    cv::morphologyEx(binary, fg1,cv::MORPH_CLOSE,element5,Point(-1,-1),1);// 闭运算填充物体内细小空洞、连接邻近物体  
+  
+    // Display the foreground image  
+    cv::namedWindow("Foreground Image");  
+    cv::imshow("Foreground Image",fg1);  
+    waitKey();  
+// Identify image pixels without objects  
+      
+    cv::Mat bg1;  
+    cv::dilate(binary,bg1,cv::Mat(),cv::Point(-1,-1),4);//膨胀4次，锚点为结构元素中心点  
+    cv::threshold(bg1,bg1,1,128,cv::THRESH_BINARY_INV);//>=1的像素设置为128（即背景）  
+    // Display the background image  
+    cv::namedWindow("Background Image");  
+    cv::imshow("Background Image",bg1);  
+    waitKey();  
 
-    std::cout << "end" << std::endl;    
-    waitKey(0);
-    return 0;
+    //Get markers image  
+  
+    Mat markers1 = fg1 + bg1; //使用Mat类的重载运算符+来合并图像。  
+    cv::namedWindow("markers Image");  
+    cv::imshow("markers Image",markers1);  
+    waitKey();  
+
+    // Apply watershed segmentation  
+  
+    WatershedSegmenter segmenter1;  //实例化一个分水岭分割方法的对象  
+    segmenter1.setMarkers(markers1);//设置算法的标记图像，使得水淹过程从这组预先定义好的标记像素开始  
+    segmenter1.process(image1);     //传入待分割原图  
+       
+    // Display segmentation result  
+    cv::namedWindow("Segmentation1");  
+    cv::imshow("Segmentation1",segmenter1.getSegmentation());//将修改后的标记图markers转换为可显示的8位灰度图并返回分割结果（白色为前景，灰色为背景，0为边缘）  
+    waitKey();  
+        // Display watersheds  
+    cv::namedWindow("Watersheds1");  
+    cv::imshow("Watersheds1",segmenter1.getWatersheds());//以图像的形式返回分水岭（分割线条）  
+    waitKey();  
+
+    // Get the masked image  
+    Mat maskimage = segmenter1.getSegmentation();  
+    cv::threshold(maskimage,maskimage,250,1,THRESH_BINARY);  
+    cv::cvtColor(maskimage,maskimage,COLOR_GRAY2BGR);  
+  
+    maskimage = image1.mul(maskimage);  
+    cv::namedWindow("maskimage");  
+    cv::imshow("maskimage",maskimage);  
+    waitKey();  
+  
+    // Turn background (0) to white (255)  
+    int nl= maskimage.rows; // number of lines  
+    int nc= maskimage.cols * maskimage.channels(); // total number of elements per line  
+  
+    for (int j=0; j<nl; j++) {  
+         uchar* data= maskimage.ptr<uchar>(j);  
+        for (int i=0; i<nc; i++)   
+        {  
+            // process each pixel ---------------------  
+            if (*data==0) //将背景由黑色改为白色显示  
+                *data=255;  
+            data++;//指针操作：如为uchar型指针则移动1个字节，即移动到下1列  
+        }  
+     }  
+    cv::namedWindow("result");  
+    cv::imshow("result",maskimage);  
+    waitKey();  
+
 }
