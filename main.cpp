@@ -15,19 +15,16 @@ void VersionPrint ()
 
 void DrawGround(Mat src,Mat ret)
 {
-    Mat g;
-    double gus;
-    gus = 17;
-    cv::GaussianBlur(p,g,Size(gus,gus),0,0);
-    namedWindow("GaussianBlur", 0);
-    imshow("GaussianBlur", g);
+    Mat tempMat;
 
-    Mat t;
-    cv::adaptiveThreshold(g,t,255,0,0,35,5);
-    cv::dilate(t,t,cv::getStructuringElement(MORPH_RECT,Size(10,10)));
-    cv::erode(t,t,cv::getStructuringElement(MORPH_RECT,Size(5,5)));
-    imshow("threshold", t);
-    waitKey(0);
+    cv::GaussianBlur(src,tempMat,Size(17,17),0,0);
+    namedWindow("GaussianBlur", 0);
+    imshow("GaussianBlur", tempMat);
+
+    cv::adaptiveThreshold(tempMat,tempMat,255,0,0,35,5);
+    cv::dilate(tempMat,tempMat,cv::getStructuringElement(MORPH_RECT,Size(10,10)));
+    cv::erode(tempMat,tempMat,cv::getStructuringElement(MORPH_RECT,Size(5,5)));
+    imshow("threshold", tempMat);
 
     std::vector<std::vector<cv::Point> > c;
     cv::findContours(t,c,CV_RETR_EXTERNAL,CV_CHAIN_APPROX_NONE);
